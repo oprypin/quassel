@@ -330,6 +330,11 @@ void CoreSession::recvMessageFromServer(NetworkId networkId, Message::Type type,
     if (_ignoreListManager.match(rawMsg, networkName) == IgnoreListManager::HardStrictness)
         return;
 
+    QRegExp msgWithNickname("^\x02?<([^>]+)>\x0f? (.*)$");
+    if (rawMsg.sender == "FromGitter!~bridge@pryp.in" && msgWithNickname.indexIn(rawMsg.text) != -1) {
+        rawMsg.sender = "@" + msgWithNickname.capturedTexts()[1] + "!~FromGitter@gitter.im";
+        rawMsg.text = msgWithNickname.capturedTexts()[2];
+    }
 
     if (currentNetwork && _highlightRuleManager.match(rawMsg, currentNetwork->myNick(), currentNetwork->identityPtr()->nicks()))
         rawMsg.flags |= Message::Flag::Highlight;
@@ -386,6 +391,7 @@ void CoreSession::processMessages()
             Q_ASSERT(!createBuffer);
             bufferInfo = Core::bufferInfo(user(), rawMsg.networkId, BufferInfo::StatusBuffer, "");
         }
+        captureGitterUser(rawMsg, bufferInfo);
         Message msg(bufferInfo, rawMsg.type, rawMsg.text, rawMsg.sender, senderPrefixes(rawMsg.sender, bufferInfo),
                     realName(rawMsg.sender, rawMsg.networkId),  avatarUrl(rawMsg.sender, rawMsg.networkId),
                     rawMsg.flags);
@@ -412,6 +418,7 @@ void CoreSession::processMessages()
                 }
                 bufferInfoCache[rawMsg.networkId][rawMsg.target] = bufferInfo;
             }
+            captureGitterUser(rawMsg, bufferInfo);
             Message msg(bufferInfo, rawMsg.type, rawMsg.text, rawMsg.sender, senderPrefixes(rawMsg.sender, bufferInfo),
                         realName(rawMsg.sender, rawMsg.networkId),  avatarUrl(rawMsg.sender, rawMsg.networkId),
                         rawMsg.flags);
@@ -430,6 +437,7 @@ void CoreSession::processMessages()
                 // add the StatusBuffer to the Cache in case there are more Messages for the original target
                 bufferInfoCache[rawMsg.networkId][rawMsg.target] = bufferInfo;
             }
+            captureGitterUser(rawMsg, bufferInfo);
             Message msg(bufferInfo, rawMsg.type, rawMsg.text, rawMsg.sender, senderPrefixes(rawMsg.sender, bufferInfo),
                         realName(rawMsg.sender, rawMsg.networkId),  avatarUrl(rawMsg.sender, rawMsg.networkId),
                         rawMsg.flags);
@@ -445,6 +453,19 @@ void CoreSession::processMessages()
     }
     _processMessages = false;
     _messageQueue.clear();
+}
+
+void CoreSession::captureGitterUser(const RawMessage &rawMsg, const BufferInfo &bufferInfo)
+{
+    if (rawMsg.sender.startsWith("@") && rawMsg.sender.endsWith("!~FromGitter@gitter.im")) {
+        CoreNetwork *currentNetwork = network(bufferInfo.networkId());
+        if (currentNetwork) {
+            IrcChannel *currentChannel = currentNetwork->ircChannel(bufferInfo.bufferName());
+            if (currentChannel) {
+                currentChannel->joinIrcUsers({rawMsg.sender.mid(1)}, {""});
+            }
+        }
+    }
 }
 
 QString CoreSession::senderPrefixes(const QString &sender, const BufferInfo &bufferInfo) const

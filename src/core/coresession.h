@@ -254,6 +254,8 @@ private:
 
     QScriptEngine *scriptEngine;
 
+    void captureGitterUser(const RawMessage &rawMsg, const BufferInfo &bufferInfo);
+
     /**
      * This method obtains the prefixes of the message's sender within a channel, by looking up their channelmodes, and
      * processing them to prefixes based on the network's settings.
