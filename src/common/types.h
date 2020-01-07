@@ -140,6 +140,7 @@ Q_DECLARE_METATYPE(QHostAddress)
 typedef QList<MsgId> MsgIdList;
 typedef QList<BufferId> BufferIdList;
 
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
 /**
  * Catch-all stream serialization operator for enum types.
  *
@@ -169,6 +170,7 @@ QDataStream &operator>>(QDataStream &in, T &value) {
     value = static_cast<T>(v);
     return in;
 }
+#endif
 
 // Exceptions
 
